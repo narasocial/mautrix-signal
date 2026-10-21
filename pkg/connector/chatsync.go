@@ -72,11 +72,12 @@ func (s *SignalClient) syncChats(ctx context.Context, cancel context.CancelFunc)
 			return
 		}
 		zerolog.Ctx(ctx).Info().Msg("Transfer archive fetched and processed, syncing chats")
-		s.UserLogin.Metadata.(*signalid.UserLoginMetadata).NaraHistoryTransfer = NaraTransferReceived
+		markNaraTransferReceived(s.UserLogin.Metadata.(*signalid.UserLoginMetadata))
 		err = s.UserLogin.Save(ctx)
 		if err != nil {
 			zerolog.Ctx(ctx).Err(err).Msg("Failed to save user login metadata after processing transfer archive")
 		}
+		s.resendBridgeState()
 	}
 	var resyncs naraResyncs
 	chats, err := s.Client.Store.BackupStore.GetBackupChats(ctx)

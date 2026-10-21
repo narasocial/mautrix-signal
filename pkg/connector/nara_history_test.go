@@ -42,6 +42,12 @@ func TestFillNaraHistory(t *testing.T) {
 		{"refused", signalid.UserLoginMetadata{NaraHistory: "done", NaraHistoryTransfer: naraTransferRefused("CONTINUE_WITHOUT_UPLOAD")}, "done", "continue_without_upload"},
 		{"login from before the fork", signalid.UserLoginMetadata{ChatsSynced: true}, "done", nil},
 		{"never came", func() signalid.UserLoginMetadata { m := naraLoginMetadata(true); markNaraTransferFailed(m); return *m }(), "done", "failed"},
+		{"came on a later try", func() signalid.UserLoginMetadata {
+			m := naraLoginMetadata(true)
+			markNaraTransferFailed(m)
+			markNaraTransferReceived(m)
+			return *m
+		}(), "started", "received"},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {

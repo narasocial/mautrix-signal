@@ -37,8 +37,9 @@ import (
 //	history_transfer  "received" once the transfer is in, "none" when the phone sent none (the human
 //	                  chose not to transfer), the phone's reason for refusing it, lowercased
 //	                  ("continue_without_upload", "relink_requested"), or "failed" when it never
-//	                  came (an hour's wait) or couldn't be read. The bridge tries again on its next
-//	                  start, and "failed" becomes "received" if that works
+//	                  came (an hour's wait) or couldn't be read, with history "done". The bridge
+//	                  tries again on its next start: if that works, history is "started" again,
+//	                  with "received", until its chats are synced
 const (
 	NaraHistoryStarted = "started"
 	NaraHistoryDone    = "done"
@@ -98,6 +99,13 @@ func (s *SignalClient) naraTransferFailed(ctx context.Context) {
 		zerolog.Ctx(ctx).Err(err).Msg("Failed to save user login metadata after the transfer failed")
 	}
 	s.resendBridgeState()
+}
+
+// markNaraTransferReceived has history started until its chats are synced, also when an earlier try
+// at the transfer had failed and reported it done.
+func markNaraTransferReceived(meta *signalid.UserLoginMetadata) {
+	meta.NaraHistory = NaraHistoryStarted
+	meta.NaraHistoryTransfer = NaraTransferReceived
 }
 
 func markNaraTransferFailed(meta *signalid.UserLoginMetadata) {
