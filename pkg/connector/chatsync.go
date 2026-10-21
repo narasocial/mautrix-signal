@@ -53,11 +53,15 @@ func (s *SignalClient) syncChats(ctx context.Context, cancel context.CancelFunc)
 			return
 		} else if meta.Error != "" {
 			zerolog.Ctx(ctx).Error().Str("error_type", meta.Error).Msg("Transfer archive request was rejected")
-			s.UserLogin.Metadata.(*signalid.UserLoginMetadata).ChatsSynced = true
+			loginMeta := s.UserLogin.Metadata.(*signalid.UserLoginMetadata)
+			loginMeta.ChatsSynced = true
+			loginMeta.NaraHistory = NaraHistoryDone
+			loginMeta.NaraHistoryTransfer = naraTransferRefused(meta.Error)
 			err = s.UserLogin.Save(ctx)
 			if err != nil {
 				zerolog.Ctx(ctx).Err(err).Msg("Failed to save user login metadata after transfer archive request was rejected")
 			}
+			s.resendBridgeState()
 			return
 		}
 		err = s.Client.FetchAndProcessTransfer(ctx, meta)
@@ -66,7 +70,13 @@ func (s *SignalClient) syncChats(ctx context.Context, cancel context.CancelFunc)
 			return
 		}
 		zerolog.Ctx(ctx).Info().Msg("Transfer archive fetched and processed, syncing chats")
+		s.UserLogin.Metadata.(*signalid.UserLoginMetadata).NaraHistoryTransfer = NaraTransferReceived
+		err = s.UserLogin.Save(ctx)
+		if err != nil {
+			zerolog.Ctx(ctx).Err(err).Msg("Failed to save user login metadata after processing transfer archive")
+		}
 	}
+	var resyncs naraResyncs
 	chats, err := s.Client.Store.BackupStore.GetBackupChats(ctx)
 	if err != nil {
 		zerolog.Ctx(ctx).Err(err).Msg("Failed to get chats from backup store")
@@ -171,13 +181,31 @@ func (s *SignalClient) syncChats(ctx context.Context, cancel context.CancelFunc)
 			}
 			continue
 		}
-		if !s.UserLogin.QueueRemoteEvent(resyncEvt).Success {
+		resyncDone := resyncs.track(resyncEvt)
+		res := s.UserLogin.QueueRemoteEvent(resyncEvt)
+		if !res.Queued {
+			// Handled on the spot, or refused: either way its portal won't report back later.
+			resyncDone()
+		}
+		if !res.Success {
 			return
 		}
 	}
-	s.UserLogin.Metadata.(*signalid.UserLoginMetadata).ChatsSynced = true
+	// History is done once every chat's portal has its room and backfill, not when they're queued.
+	if !resyncs.wait(ctx, naraResyncWait) {
+		if ctx.Err() != nil {
+			zerolog.Ctx(ctx).Debug().AnErr("ctx_err", ctx.Err()).Msg("Context cancelled while waiting for chat resyncs")
+			return
+		}
+		zerolog.Ctx(ctx).Warn().Dur("waited", naraResyncWait).Msg("Not every chat resync was handled in time, marking history done anyway")
+	}
+	loginMeta := s.UserLogin.Metadata.(*signalid.UserLoginMetadata)
+	loginMeta.ChatsSynced = true
+	loginMeta.NaraHistory = NaraHistoryDone
 	err = s.UserLogin.Save(ctx)
 	if err != nil {
 		zerolog.Ctx(ctx).Err(err).Msg("Failed to save user login metadata after syncing chats")
 	}
+	zerolog.Ctx(ctx).Info().Int("chat_count", len(chats)).Msg("Every chat from the history transfer has its portal and backfill")
+	s.resendBridgeState()
 }

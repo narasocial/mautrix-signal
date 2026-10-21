@@ -225,7 +225,7 @@ func (qr *QRLogin) loginComplete(ctx context.Context, provData *store.DeviceData
 		RemoteProfile: status.RemoteProfile{
 			Phone: provData.Number,
 		},
-		Metadata: &signalid.UserLoginMetadata{},
+		Metadata: naraLoginMetadata(provData.EphemeralBackupKey != nil),
 	}, &bridgev2.NewLoginParams{
 		DeleteOnConflict: true,
 	})

@@ -39,6 +39,10 @@ type MessageMetadata struct {
 type UserLoginMetadata struct {
 	ChatsSynced     bool               `json:"chats_synced,omitempty"`
 	LastContactSync jsontime.UnixMilli `json:"last_contact_sync,omitempty"`
+
+	// How the history transfer after login is going, for Nara (connector.FillBridgeState).
+	NaraHistory         string `json:"nara_history,omitempty"`
+	NaraHistoryTransfer string `json:"nara_history_transfer,omitempty"`
 }
 
 type GhostMetadata struct {
