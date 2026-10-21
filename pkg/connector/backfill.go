@@ -81,6 +81,7 @@ func (s *SignalClient) FetchMessages(ctx context.Context, params bridgev2.FetchM
 	var isRead bool
 	convertedMessages := make([]*bridgev2.BackfillMessage, 0, len(items))
 	attMap := make(msgconv.AttachmentMap)
+	naraLookup := newNaraPeople(s.Client.Store.RecipientStore)
 	recipientMap := make(map[uint64]*backuppb.Recipient)
 	getRecipientACI := func(id uint64) (uuid.UUID, error) {
 		recipient, ok := recipientMap[id]
@@ -152,6 +153,11 @@ func (s *SignalClient) FetchMessages(ctx context.Context, params bridgev2.FetchM
 			continue
 		}
 		cm := s.Main.MsgConv.ToMatrix(ctx, s.Client, params.Portal, senderACI, s.Main.Bridge.Bot, dm, attMap)
+		setNaraInfo(cm, s.naraInfo(ctx, params.Portal, naraLookup, naraMessage{
+			Sender:    senderACI,
+			Timestamp: item.DateSent,
+			History:   true,
+		}))
 		convertedReactions := make([]*bridgev2.BackfillReaction, 0, len(reactions))
 		for _, reaction := range reactions {
 			reactionSenderACI, err := getRecipientACI(reaction.AuthorId)

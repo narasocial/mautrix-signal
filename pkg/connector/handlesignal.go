@@ -367,6 +367,10 @@ func (evt *Bv2ChatEvent) ConvertMessage(ctx context.Context, portal *bridgev2.Po
 		meta.ServerGUID = evt.Info.ServerGUID
 		meta.ReportingToken = evt.Info.ReportingToken
 	}
+	setNaraInfo(converted, evt.s.naraInfo(ctx, portal, nil, naraMessage{
+		Sender:    evt.Info.Sender,
+		Timestamp: dataMsg.GetTimestamp(),
+	}))
 
 	if converted.Disappear.Type != "" {
 		evtTS := evt.GetTimestamp()
@@ -439,6 +443,11 @@ func (evt *Bv2ChatEvent) ConvertEdit(ctx context.Context, portal *bridgev2.Porta
 	if prevID != editPart.Part.ID {
 		convertedEdit.AddedParts = editStubMessage()
 	}
+	setNaraEditInfo(convertedEdit, evt.s.naraInfo(ctx, portal, nil, naraMessage{
+		Sender:      evt.Info.Sender,
+		Timestamp:   editMsg.GetDataMessage().GetTimestamp(),
+		TargetStamp: editMsg.GetTargetSentTimestamp(),
+	}), existing)
 	return convertedEdit, nil
 }
 
