@@ -50,3 +50,6 @@ require (
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1 // indirect
 	maunium.net/go/mauflag v1.0.0 // indirect
 )
+
+// Nara: a backfill skips a message the homeserver refuses instead of ending the chat's backfill (NARA.md).
+replace maunium.net/go/mautrix => github.com/narasocial/mautrix-go v0.32.1-0.20261021000255-2cbc91848f4c
