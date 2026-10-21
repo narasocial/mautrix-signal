@@ -22,6 +22,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/rs/zerolog"
 	"maunium.net/go/mautrix/bridgev2"
 	"maunium.net/go/mautrix/bridgev2/simplevent"
 	"maunium.net/go/mautrix/bridgev2/status"
@@ -34,14 +35,17 @@ import (
 //	history           "started" from the link until every chat in the phone's history transfer has its
 //	                  portal and backfill, then "done"
 //	history_transfer  "received" once the transfer is in, "none" when the phone sent none (the human
-//	                  chose not to transfer), or the phone's reason for refusing it, lowercased
-//	                  ("continue_without_upload", "relink_requested")
+//	                  chose not to transfer), the phone's reason for refusing it, lowercased
+//	                  ("continue_without_upload", "relink_requested"), or "failed" when it never
+//	                  came (an hour's wait) or couldn't be read. The bridge tries again on its next
+//	                  start, and "failed" becomes "received" if that works
 const (
 	NaraHistoryStarted = "started"
 	NaraHistoryDone    = "done"
 
 	NaraTransferReceived = "received"
 	NaraTransferNone     = "none"
+	NaraTransferFailed   = "failed"
 )
 
 // naraResyncWait is the longest syncChats waits for the portals it queued chat resyncs for. A resync
@@ -80,6 +84,25 @@ func naraLoginMetadata(transferring bool) *signalid.UserLoginMetadata {
 		return &signalid.UserLoginMetadata{NaraHistory: NaraHistoryStarted}
 	}
 	return &signalid.UserLoginMetadata{NaraHistory: NaraHistoryDone, NaraHistoryTransfer: NaraTransferNone}
+}
+
+// naraTransferFailed reports history done, without it, when the transfer never came or couldn't be
+// read, so the status endpoint isn't left waiting on "started". Nothing is reported when the sync was
+// cancelled (a disconnect or logout), which isn't a failure.
+func (s *SignalClient) naraTransferFailed(ctx context.Context) {
+	if ctx.Err() != nil {
+		return
+	}
+	markNaraTransferFailed(s.UserLogin.Metadata.(*signalid.UserLoginMetadata))
+	if err := s.UserLogin.Save(ctx); err != nil {
+		zerolog.Ctx(ctx).Err(err).Msg("Failed to save user login metadata after the transfer failed")
+	}
+	s.resendBridgeState()
+}
+
+func markNaraTransferFailed(meta *signalid.UserLoginMetadata) {
+	meta.NaraHistory = NaraHistoryDone
+	meta.NaraHistoryTransfer = NaraTransferFailed
 }
 
 func naraTransferRefused(reason string) string {

@@ -50,6 +50,7 @@ func (s *SignalClient) syncChats(ctx context.Context, cancel context.CancelFunc)
 		meta, err := s.Client.WaitForTransfer(ctx)
 		if err != nil {
 			zerolog.Ctx(ctx).Err(err).Msg("Failed to request transfer archive")
+			s.naraTransferFailed(ctx)
 			return
 		} else if meta.Error != "" {
 			zerolog.Ctx(ctx).Error().Str("error_type", meta.Error).Msg("Transfer archive request was rejected")
@@ -67,6 +68,7 @@ func (s *SignalClient) syncChats(ctx context.Context, cancel context.CancelFunc)
 		err = s.Client.FetchAndProcessTransfer(ctx, meta)
 		if err != nil {
 			zerolog.Ctx(ctx).Err(err).Msg("Failed to fetch and process transfer archive")
+			s.naraTransferFailed(ctx)
 			return
 		}
 		zerolog.Ctx(ctx).Info().Msg("Transfer archive fetched and processed, syncing chats")
