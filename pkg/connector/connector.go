@@ -85,6 +85,7 @@ func (s *SignalConnector) Start(ctx context.Context) error {
 		return bridgev2.DBUpgradeError{Err: err, Section: "signalmeow"}
 	}
 	s.registerNaraForget()
+	go s.naraPruneLoop()
 	return nil
 }
 
