@@ -10,6 +10,7 @@ require (
 	github.com/coder/websocket v1.8.15
 	github.com/emersion/go-vcard v0.0.0-20241024213814-c9703dde27ff
 	github.com/google/uuid v1.6.0
+	github.com/lib/pq v1.12.3
 	github.com/mattn/go-pointer v0.0.1
 	github.com/rs/zerolog v1.35.1
 	github.com/stretchr/testify v1.12.0
@@ -29,7 +30,6 @@ require (
 	filippo.io/edwards25519 v1.2.0 // indirect
 	github.com/coreos/go-systemd/v22 v22.7.0 // indirect
 	github.com/kr/pretty v0.3.1 // indirect
-	github.com/lib/pq v1.12.3 // indirect
 	github.com/mattn/go-colorable v0.1.14 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/mattn/go-sqlite3 v1.14.52 // indirect
@@ -51,5 +51,6 @@ require (
 	maunium.net/go/mauflag v1.0.0 // indirect
 )
 
-// Nara: a backfill skips a message the homeserver refuses instead of ending the chat's backfill (NARA.md).
-replace maunium.net/go/mautrix => github.com/narasocial/mautrix-go v0.32.1-0.20261021000255-2cbc91848f4c
+// Nara: a backfill skips a message the homeserver refuses instead of ending the chat's backfill, and
+// Bridge.DeleteGhost forgets a remote user (NARA.md).
+replace maunium.net/go/mautrix => github.com/narasocial/mautrix-go v0.32.1-0.20261021052707-0812f860859c
