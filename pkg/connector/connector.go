@@ -84,6 +84,7 @@ func (s *SignalConnector) Start(ctx context.Context) error {
 	if err != nil {
 		return bridgev2.DBUpgradeError{Err: err, Section: "signalmeow"}
 	}
+	s.registerNaraForget()
 	return nil
 }
 
