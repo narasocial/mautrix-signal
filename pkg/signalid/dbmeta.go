@@ -43,6 +43,9 @@ type UserLoginMetadata struct {
 	// How the history transfer after login is going, for Nara (connector.FillBridgeState).
 	NaraHistory         string `json:"nara_history,omitempty"`
 	NaraHistoryTransfer string `json:"nara_history_transfer,omitempty"`
+	// When the transfer's archive was stored, so Nara's prune deletes it a day later at most
+	// (connector.naraPruneArchives).
+	NaraTransferReceivedAt jsontime.Unix `json:"nara_transfer_received_at,omitzero"`
 }
 
 type GhostMetadata struct {

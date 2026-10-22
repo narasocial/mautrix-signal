@@ -22,11 +22,13 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.mau.fi/util/dbutil"
+	"go.mau.fi/util/jsontime"
 	"maunium.net/go/mautrix/bridgev2/database"
 	"maunium.net/go/mautrix/bridgev2/networkid"
 
@@ -106,12 +108,18 @@ func TestNaraPruneArchives(t *testing.T) {
 		return device
 	}
 	synced := login(&signalid.UserLoginMetadata{ChatsSynced: true, NaraHistory: NaraHistoryDone})
-	syncing := login(naraLoginMetadata(true))
+	received := naraLoginMetadata(true)
+	markNaraTransferReceived(received)
+	syncing := login(received)
+	stale := naraLoginMetadata(true)
+	markNaraTransferReceived(stale)
+	stale.NaraTransferReceivedAt = jsontime.U(time.Now().Add(-NaraArchiveMaxAge - time.Minute))
+	neverSynced := login(stale)
 
-	messages, chats, err := naraPruneArchives(ctx, db, bridgeID)
+	messages, chats, err := naraPruneArchives(ctx, db, bridgeID, time.Now())
 	require.NoError(t, err)
-	assert.Equal(t, int64(1), messages)
-	assert.Equal(t, int64(1), chats)
+	assert.Equal(t, int64(2), messages)
+	assert.Equal(t, int64(2), chats)
 
 	archive := func(device *store.Device) (rows int) {
 		t.Helper()
@@ -123,6 +131,7 @@ func TestNaraPruneArchives(t *testing.T) {
 		return
 	}
 	assert.Equal(t, 0, archive(synced), "the synced login's archive")
+	assert.Equal(t, 0, archive(neverSynced), "the archive of a login whose transfer came a day ago")
 	assert.Equal(t, 3, archive(syncing), "the archive of a login still syncing its chats")
 	chatsLeft, err := syncing.BackupStore.GetBackupChats(ctx)
 	require.NoError(t, err)

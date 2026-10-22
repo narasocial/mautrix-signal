@@ -39,10 +39,14 @@ import (
 // syncChats marks the login's chats synced once every portal it queued has made its room and sent its
 // backfill (or an hour has passed), and never reads the archive again then. So while the backfill
 // queue is off, at start and every NaraPruneInterval, the bridge deletes the archive of every login
-// whose chats are synced.
+// whose chats are synced, and of every login whose transfer came more than NaraArchiveMaxAge ago
+// (one whose chats never finished syncing, as it never connected again).
 
 // NaraPruneInterval is how often the bridge deletes history transfer archives nothing will read.
 const NaraPruneInterval = 10 * time.Minute
+
+// NaraArchiveMaxAge is how long a login's history transfer archive is kept at most.
+const NaraArchiveMaxAge = 24 * time.Hour
 
 func (s *SignalConnector) naraPruneLoop() {
 	ctx := s.Bridge.BackgroundCtx
@@ -57,14 +61,14 @@ func (s *SignalConnector) naraPruneLoop() {
 	ticker := time.NewTicker(NaraPruneInterval)
 	defer ticker.Stop()
 	for {
-		messages, chats, err := naraPruneArchives(ctx, s.Bridge.DB.Database, s.Bridge.ID)
+		messages, chats, err := naraPruneArchives(ctx, s.Bridge.DB.Database, s.Bridge.ID, time.Now())
 		if err != nil {
 			log.Err(err).Msg("Failed to prune history transfer archives")
 		} else if messages > 0 || chats > 0 {
 			log.Info().
 				Int64("messages", messages).
 				Int64("chats", chats).
-				Msg("Pruned history transfer archives of synced logins")
+				Msg("Pruned history transfer archives")
 		}
 		select {
 		case <-ctx.Done():
@@ -75,23 +79,27 @@ func (s *SignalConnector) naraPruneLoop() {
 }
 
 // naraPruneArchives deletes the history transfer archive of every login of the bridge whose chats are
-// synced, and says how many messages and chats it deleted.
-func naraPruneArchives(ctx context.Context, db *dbutil.Database, bridgeID networkid.BridgeID) (messages, chats int64, err error) {
-	const synced = `
-		SELECT id FROM user_login WHERE bridge_id = $1 AND metadata @> '{"chats_synced": true}'
+// synced or whose transfer came more than NaraArchiveMaxAge before now, and says how many messages and
+// chats it deleted.
+func naraPruneArchives(ctx context.Context, db *dbutil.Database, bridgeID networkid.BridgeID, now time.Time) (messages, chats int64, err error) {
+	const done = `
+		SELECT id FROM user_login WHERE bridge_id = $1 AND (
+			metadata @> '{"chats_synced": true}' OR (metadata->>'nara_transfer_received_at')::bigint < $2
+		)
 	`
+	cutoff := now.Add(-NaraArchiveMaxAge).Unix()
 	err = db.DoTxn(ctx, nil, func(ctx context.Context) error {
-		res, err := db.Exec(ctx, `DELETE FROM signalmeow_backup_message WHERE account_id IN (`+synced+`)`, bridgeID)
+		res, err := db.Exec(ctx, `DELETE FROM signalmeow_backup_message WHERE account_id IN (`+done+`)`, bridgeID, cutoff)
 		if err != nil {
 			return fmt.Errorf("failed to delete messages: %w", err)
 		}
 		messages, _ = res.RowsAffected()
-		res, err = db.Exec(ctx, `DELETE FROM signalmeow_backup_chat WHERE account_id IN (`+synced+`)`, bridgeID)
+		res, err = db.Exec(ctx, `DELETE FROM signalmeow_backup_chat WHERE account_id IN (`+done+`)`, bridgeID, cutoff)
 		if err != nil {
 			return fmt.Errorf("failed to delete chats: %w", err)
 		}
 		chats, _ = res.RowsAffected()
-		_, err = db.Exec(ctx, `DELETE FROM signalmeow_backup_recipient WHERE account_id IN (`+synced+`)`, bridgeID)
+		_, err = db.Exec(ctx, `DELETE FROM signalmeow_backup_recipient WHERE account_id IN (`+done+`)`, bridgeID, cutoff)
 		if err != nil {
 			return fmt.Errorf("failed to delete recipients: %w", err)
 		}

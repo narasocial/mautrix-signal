@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"github.com/rs/zerolog"
+	"go.mau.fi/util/jsontime"
 	"maunium.net/go/mautrix/bridgev2"
 	"maunium.net/go/mautrix/bridgev2/simplevent"
 	"maunium.net/go/mautrix/bridgev2/status"
@@ -106,6 +107,7 @@ func (s *SignalClient) naraTransferFailed(ctx context.Context) {
 func markNaraTransferReceived(meta *signalid.UserLoginMetadata) {
 	meta.NaraHistory = NaraHistoryStarted
 	meta.NaraHistoryTransfer = NaraTransferReceived
+	meta.NaraTransferReceivedAt = jsontime.UnixNow()
 }
 
 func markNaraTransferFailed(meta *signalid.UserLoginMetadata) {
