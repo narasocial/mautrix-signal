@@ -36,11 +36,12 @@ import (
 // was already there (the resync backfills nothing older than what it has) or couldn't be made, one
 // whose backfill failed. And the recipients always stayed.
 //
-// syncChats marks the login's chats synced once every portal it queued has made its room and sent its
-// backfill (or an hour has passed), and never reads the archive again then. So while the backfill
-// queue is off, at start and every NaraPruneInterval, the bridge deletes the archive of every login
-// whose chats are synced, and of every login whose transfer came more than NaraArchiveMaxAge ago
-// (one whose chats never finished syncing, as it never connected again).
+// A chat's room still reads the archive after syncChats is done with it: one skipped on an error, or
+// whose room creation failed or was still queued at syncChats' hour, gets its room (and its backfill,
+// from the archive) when its first live message comes. So while the backfill queue is off, at start
+// and every NaraPruneInterval, the bridge deletes the archive of every login whose transfer came more
+// than NaraArchiveMaxAge ago, which gives those chats a day; and of every login synced before the
+// bridge recorded when its transfer came, whose transfer is older than this build.
 
 // NaraPruneInterval is how often the bridge deletes history transfer archives nothing will read.
 const NaraPruneInterval = 10 * time.Minute
@@ -78,13 +79,14 @@ func (s *SignalConnector) naraPruneLoop() {
 	}
 }
 
-// naraPruneArchives deletes the history transfer archive of every login of the bridge whose chats are
-// synced or whose transfer came more than NaraArchiveMaxAge before now, and says how many messages and
-// chats it deleted.
+// naraPruneArchives deletes the history transfer archive of every login of the bridge whose transfer
+// came more than NaraArchiveMaxAge before now, or that was synced before the bridge recorded when, and
+// says how many messages and chats it deleted.
 func naraPruneArchives(ctx context.Context, db *dbutil.Database, bridgeID networkid.BridgeID, now time.Time) (messages, chats int64, err error) {
 	const done = `
 		SELECT id FROM user_login WHERE bridge_id = $1 AND (
-			metadata @> '{"chats_synced": true}' OR (metadata->>'nara_transfer_received_at')::bigint < $2
+			(metadata @> '{"chats_synced": true}' AND metadata->>'nara_transfer_received_at' IS NULL)
+			OR (metadata->>'nara_transfer_received_at')::bigint < $2
 		)
 	`
 	cutoff := now.Add(-NaraArchiveMaxAge).Unix()

@@ -108,6 +108,11 @@ func TestNaraPruneArchives(t *testing.T) {
 		return device
 	}
 	synced := login(&signalid.UserLoginMetadata{ChatsSynced: true, NaraHistory: NaraHistoryDone})
+	// Synced today: a chat whose room is still to come reads the archive, so it waits out the day.
+	today := naraLoginMetadata(true)
+	markNaraTransferReceived(today)
+	today.ChatsSynced = true
+	syncedToday := login(today)
 	received := naraLoginMetadata(true)
 	markNaraTransferReceived(received)
 	syncing := login(received)
@@ -130,7 +135,8 @@ func TestNaraPruneArchives(t *testing.T) {
 		`, device.ACI.String()).Scan(&rows))
 		return
 	}
-	assert.Equal(t, 0, archive(synced), "the synced login's archive")
+	assert.Equal(t, 0, archive(synced), "the archive of a login synced before the bridge recorded its transfer")
+	assert.Equal(t, 3, archive(syncedToday), "the archive of a login synced today")
 	assert.Equal(t, 0, archive(neverSynced), "the archive of a login whose transfer came a day ago")
 	assert.Equal(t, 3, archive(syncing), "the archive of a login still syncing its chats")
 	chatsLeft, err := syncing.BackupStore.GetBackupChats(ctx)
