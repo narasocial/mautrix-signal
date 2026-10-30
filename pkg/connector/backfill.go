@@ -169,7 +169,7 @@ func (s *SignalClient) FetchMessages(ctx context.Context, params bridgev2.FetchM
 			}
 			var extra map[string]any
 			if reactionSenderACI == s.Client.Store.ACI {
-				extra = map[string]any{NaraContentKey: naraReactionInfo(reactionSenderACI, params.Portal.ID, reaction.SentTimestamp, msgID, true)}
+				extra = map[string]any{NaraReactionKey: naraReactionInfo(reactionSenderACI, params.Portal.ID, reaction.SentTimestamp, msgID, true)}
 			}
 			convertedReactions = append(convertedReactions, &bridgev2.BackfillReaction{
 				TargetPart:   ptr.Ptr(networkid.PartID("")),

@@ -355,7 +355,7 @@ func (evt *Bv2ChatEvent) GetReactionExtraContent() map[string]any {
 	if !ok || dataMsg.Reaction == nil || evt.s.Client == nil || evt.s.Client.Store == nil || evt.Info.Sender != evt.s.Client.Store.ACI {
 		return nil
 	}
-	return map[string]any{NaraContentKey: naraReactionInfo(evt.s.Client.Store.ACI, evt.GetPortalKey().ID, dataMsg.GetTimestamp(), evt.GetTargetMessage(), false)}
+	return map[string]any{NaraReactionKey: naraReactionInfo(evt.s.Client.Store.ACI, evt.GetPortalKey().ID, dataMsg.GetTimestamp(), evt.GetTargetMessage(), false)}
 }
 
 func (evt *Bv2ChatEvent) GetRemovedEmojiID() networkid.EmojiID {
