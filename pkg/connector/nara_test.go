@@ -246,3 +246,20 @@ func TestNaraPartIndex(t *testing.T) {
 	assert.Equal(t, 3, naraPartIndex(signalid.MakeMessagePartID(3)))
 	assert.Equal(t, 0, naraPartIndex("editstub"))
 }
+
+func TestNaraReactionInfo(t *testing.T) {
+	own := uuid.MustParse("11111111-1111-4111-8111-111111111111")
+	peer := uuid.MustParse("22222222-2222-4222-8222-222222222222")
+	target := signalid.MakeMessageID(peer, 1700000000000)
+	info := naraReactionInfo(own, networkid.PortalID(peer.String()), 1700000001000, target, false)
+	raw, err := json.Marshal(info)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := `{"v":1,"receiver":"11111111-1111-4111-8111-111111111111","chat":"22222222-2222-4222-8222-222222222222","direct":true,` +
+		`"message_id":"11111111-1111-4111-8111-111111111111|1700000001000","target_id":"22222222-2222-4222-8222-222222222222|1700000000000",` +
+		`"part":0,"parts":1,"sender":"11111111-1111-4111-8111-111111111111","from_me":true,"history":false,"reaction":true}`
+	if string(raw) != want {
+		t.Fatalf("got %s, want %s", raw, want)
+	}
+}

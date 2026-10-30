@@ -158,6 +158,7 @@ func (s *SignalClient) FetchMessages(ctx context.Context, params bridgev2.FetchM
 			Timestamp: item.DateSent,
 			History:   true,
 		}))
+		msgID := signalid.MakeMessageID(senderACI, item.DateSent)
 		convertedReactions := make([]*bridgev2.BackfillReaction, 0, len(reactions))
 		for _, reaction := range reactions {
 			reactionSenderACI, err := getRecipientACI(reaction.AuthorId)
@@ -166,14 +167,18 @@ func (s *SignalClient) FetchMessages(ctx context.Context, params bridgev2.FetchM
 			} else if reactionSenderACI == uuid.Nil {
 				continue
 			}
+			var extra map[string]any
+			if reactionSenderACI == s.Client.Store.ACI {
+				extra = map[string]any{NaraContentKey: naraReactionInfo(reactionSenderACI, params.Portal.ID, reaction.SentTimestamp, msgID, true)}
+			}
 			convertedReactions = append(convertedReactions, &bridgev2.BackfillReaction{
-				TargetPart: ptr.Ptr(networkid.PartID("")),
-				Timestamp:  time.UnixMilli(int64(reaction.SentTimestamp)),
-				Sender:     s.makeEventSender(reactionSenderACI),
-				Emoji:      reaction.GetEmoji(),
+				TargetPart:   ptr.Ptr(networkid.PartID("")),
+				Timestamp:    time.UnixMilli(int64(reaction.SentTimestamp)),
+				Sender:       s.makeEventSender(reactionSenderACI),
+				Emoji:        reaction.GetEmoji(),
+				ExtraContent: extra,
 			})
 		}
-		msgID := signalid.MakeMessageID(senderACI, item.DateSent)
 		convertedMessages = append(convertedMessages, &bridgev2.BackfillMessage{
 			ConvertedMessage: cm,
 			Sender:           s.makeEventSender(senderACI),

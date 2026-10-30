@@ -39,8 +39,9 @@ import (
 // (https://nara.contact), whose appservice reads the bridge's events off the homeserver.
 // It says whose Signal an event came through, which chat it's in, who sent it, the receiver's own
 // name and number for them, and Signal's message ID, none of which a Matrix event otherwise carries
-// (ghosts are shared by every login on the bridge). Reactions and redactions have none: Nara finds
-// them by the event they relate to.
+// (ghosts are shared by every login on the bridge). The receiver's own reactions carry one too
+// (reaction: true), so Nara can count one as their answer to the message it's on; other reactions
+// and redactions have none: Nara finds them by the event they relate to.
 const NaraContentKey = "social.nara"
 
 // NaraMessageInfo is the social.nara block, version 1. Phone numbers are E.164 with a leading +.
@@ -74,6 +75,27 @@ type NaraMessageInfo struct {
 	FromMe            bool   `json:"from_me"`
 	// True for a message backfilled from the history transfer, false for one that arrived live.
 	History bool `json:"history"`
+	// The receiver's own reaction, sent at MessageID's timestamp, on the message TargetID: no message of its own.
+	Reaction bool `json:"reaction,omitempty"`
+}
+
+// naraReactionInfo builds the block for the receiver's own reaction, sent at sentTS, on a message
+// (target) in the portal. No names: Nara needs only whose it is and which message it's on.
+func naraReactionInfo(ownACI uuid.UUID, portalID networkid.PortalID, sentTS uint64, target networkid.MessageID, history bool) *NaraMessageInfo {
+	_, groupID, _ := signalid.ParsePortalID(portalID)
+	return &NaraMessageInfo{
+		V:         1,
+		Receiver:  string(signalid.MakeUserLoginID(ownACI)),
+		Chat:      string(portalID),
+		Direct:    groupID == "",
+		MessageID: string(signalid.MakeMessageID(ownACI, sentTS)),
+		TargetID:  string(target),
+		Parts:     1,
+		Sender:    ownACI.String(),
+		FromMe:    true,
+		History:   history,
+		Reaction:  true,
+	}
 }
 
 // naraMessage is what a NaraMessageInfo is built from.
