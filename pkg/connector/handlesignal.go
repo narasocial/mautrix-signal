@@ -173,6 +173,7 @@ var (
 	_ bridgev2.RemoteEventWithTimestamp       = (*Bv2ChatEvent)(nil)
 	_ bridgev2.RemoteReaction                 = (*Bv2ChatEvent)(nil)
 	_ bridgev2.RemoteReactionWithExtraContent = (*Bv2ChatEvent)(nil)
+	_ bridgev2.RemoteReactionToUnknownTarget  = (*Bv2ChatEvent)(nil)
 	_ bridgev2.RemoteReactionRemove           = (*Bv2ChatEvent)(nil)
 	_ bridgev2.RemoteMessageRemove            = (*Bv2ChatEvent)(nil)
 	_ bridgev2.RemoteTyping                   = (*Bv2ChatEvent)(nil)
@@ -356,6 +357,18 @@ func (evt *Bv2ChatEvent) GetReactionExtraContent() map[string]any {
 		return nil
 	}
 	return map[string]any{NaraReactionKey: naraReactionInfo(evt.s.Client.Store.ACI, evt.GetPortalKey().ID, dataMsg.GetTimestamp(), evt.GetTargetMessage(), false)}
+}
+
+// GetUnknownTargetEvent sends the receiver's own reaction, or its removal, on a message the bridge no
+// longer has as a NaraReactionEventType, for Nara, which finds the message by its Signal ID.
+func (evt *Bv2ChatEvent) GetUnknownTargetEvent() (event.Type, map[string]any) {
+	dataMsg, ok := evt.Event.(*signalpb.DataMessage)
+	if !ok || dataMsg.Reaction == nil || evt.s.Client == nil || evt.s.Client.Store == nil || evt.Info.Sender != evt.s.Client.Store.ACI {
+		return NaraReactionEventType, nil
+	}
+	info := naraReactionInfo(evt.s.Client.Store.ACI, evt.GetPortalKey().ID, dataMsg.GetTimestamp(), evt.GetTargetMessage(), false)
+	info.Removed = dataMsg.Reaction.GetRemove()
+	return NaraReactionEventType, map[string]any{NaraReactionKey: info}
 }
 
 func (evt *Bv2ChatEvent) GetRemovedEmojiID() networkid.EmojiID {

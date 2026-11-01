@@ -53,4 +53,4 @@ require (
 
 // Nara: a backfill skips a message the homeserver refuses instead of ending the chat's backfill, and
 // Bridge.DeleteGhost forgets a remote user (NARA.md).
-replace maunium.net/go/mautrix => github.com/narasocial/mautrix-go v0.32.1-0.20261021052707-0812f860859c
+replace maunium.net/go/mautrix => github.com/narasocial/mautrix-go v0.32.1-0.20261101023739-36379b9012d6

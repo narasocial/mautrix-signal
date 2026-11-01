@@ -28,6 +28,7 @@ import (
 	"maunium.net/go/mautrix/bridgev2"
 	"maunium.net/go/mautrix/bridgev2/database"
 	"maunium.net/go/mautrix/bridgev2/networkid"
+	"maunium.net/go/mautrix/event"
 
 	"go.mau.fi/mautrix-signal/pkg/libsignalgo"
 	"go.mau.fi/mautrix-signal/pkg/signalid"
@@ -48,6 +49,12 @@ const NaraContentKey = "social.nara"
 // with reaction: true, under a key of its own, so a Nara server from before it read reactions drops
 // one (as an event with no block) rather than taking it for a message of theirs.
 const NaraReactionKey = "social.nara.reaction"
+
+// NaraReactionEventType is the event the bridge sends for the receiver's own reaction, or its
+// removal, on a message it no longer has (one from before the login was linked again, whose rows its
+// logout deleted): no m.reaction, which would need the message's event, but the block alone, under
+// NaraReactionKey, for Nara to find the message by its network ID.
+var NaraReactionEventType = event.Type{Type: "social.nara.reaction", Class: event.MessageEventType}
 
 // NaraMessageInfo is the social.nara block, version 1. Phone numbers are E.164 with a leading +.
 type NaraMessageInfo struct {
@@ -82,6 +89,8 @@ type NaraMessageInfo struct {
 	History bool `json:"history"`
 	// The receiver's own reaction, sent at MessageID's timestamp, on the message TargetID: no message of its own.
 	Reaction bool `json:"reaction,omitempty"`
+	// On NaraReactionEventType: the reaction was taken off.
+	Removed bool `json:"removed,omitempty"`
 }
 
 // naraReactionInfo builds the block for the receiver's own reaction, sent at sentTS, on a message

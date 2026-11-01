@@ -20,6 +20,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/google/uuid"
@@ -261,5 +262,23 @@ func TestNaraReactionInfo(t *testing.T) {
 		`"part":0,"parts":1,"sender":"11111111-1111-4111-8111-111111111111","from_me":true,"history":false,"reaction":true}`
 	if string(raw) != want {
 		t.Fatalf("got %s, want %s", raw, want)
+	}
+}
+
+func TestNaraReactionRemoved(t *testing.T) {
+	own := uuid.MustParse("11111111-1111-4111-8111-111111111111")
+	peer := uuid.MustParse("22222222-2222-4222-8222-222222222222")
+	target := signalid.MakeMessageID(peer, 1700000000000)
+	info := naraReactionInfo(own, networkid.PortalID(peer.String()), 1700000001000, target, false)
+	info.Removed = true
+	raw, err := json.Marshal(map[string]any{NaraReactionKey: info})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(raw), `"reaction":true,"removed":true`) {
+		t.Fatalf("got %s", raw)
+	}
+	if NaraReactionEventType.Type != "social.nara.reaction" {
+		t.Fatalf("type %s", NaraReactionEventType.Type)
 	}
 }
